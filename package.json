@@ -1,0 +1,24 @@
+{
+    "name": "tiny-promise",
+    "version": "0.1.0",
+    "description": "Tiny implementation of Promise/A+ specification.",
+    "keywords": [
+        "promise"
+    ],
+    "author": "ricky <rickkkkkkkkky@foxmail.com>",
+    "main": "src/index.ts",
+    "repository": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/rickkky/tiny-promise.git"
+    },
+    "bugs": {
+        "url": "https://github.com/rickkky/tiny-promise/issues"
+    },
+    "homepage": "https://github.com/rickkky/tiny-promise#readme",
+    "scripts": {
+        "prepare": "husky install"
+    },
+    "devDependencies": {
+        "typescript": "^4.6.2"
+    }
+}
