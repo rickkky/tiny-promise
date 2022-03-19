@@ -16,9 +16,11 @@
     },
     "homepage": "https://github.com/rickkky/tiny-promise#readme",
     "scripts": {
-        "prepare": "husky install"
+        "build": "tsc --build",
+        "test": "node test/index.js"
     },
     "devDependencies": {
+        "promises-aplus-tests": "^2.1.2",
         "typescript": "^4.6.2"
     }
 }
