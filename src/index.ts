@@ -1,24 +1,31 @@
 import { nextTick } from './next-tick';
 
-export interface FulfilledHandler<T, TResult = T> {
-    (value: T): TResult | PromiseLike<TResult>;
+interface FulfilledHandler<T, TResult> {
+    (value: T): TResult | Thenable<TResult>;
 }
 
-export interface RejectedHandler<TResult = never> {
-    (reason: any): TResult | PromiseLike<TResult>;
+interface RejectedHandler<TResult> {
+    (reason: any): TResult | Thenable<TResult>;
 }
 
-export interface Thenable<T> {
+interface Thenable<T> {
     then<TResult1 = T, TResult2 = never>(
-        onfulfilled?: FulfilledHandler<T, TResult1>,
-        onrejected?: RejectedHandler<TResult2>,
+        onfulfilled?: FulfilledHandler<T, TResult1> | undefined | null,
+        onrejected?: RejectedHandler<TResult2> | undefined | null,
     ): Thenable<TResult1 | TResult2>;
 }
 
-interface Task {
-    promise: TinyPromise<any>;
-    onfulfilled: FulfilledHandler<any>;
-    onrejected: RejectedHandler;
+interface Executor<T> {
+    (
+        resolve: (value: T | Thenable<T>) => void,
+        reject: (reason?: any) => void,
+    ): void;
+}
+
+interface Task<T, TResult1, TResult2> {
+    promise: TinyPromise<TResult1 | TResult2>;
+    onfulfilled: FulfilledHandler<T, TResult1>;
+    onrejected: RejectedHandler<TResult2>;
 }
 
 enum State {
@@ -33,14 +40,14 @@ const passError = (error: any) => {
 };
 
 export class TinyPromise<T> implements Thenable<T> {
-    static resolve<T>(value: T): TinyPromise<T> {
-        return new TinyPromise((resolve: FulfilledHandler<T>) => {
+    static resolve<T>(value: T | Thenable<T>): TinyPromise<T> {
+        return new TinyPromise((resolve) => {
             resolve(value);
         });
     }
 
-    static reject(reason: any) {
-        return new TinyPromise((resolve: any, reject: RejectedHandler) => {
+    static rejec<T = never>(reason?: any): TinyPromise<T> {
+        return new TinyPromise((resolve, reject) => {
             reject(reason);
         });
     }
@@ -48,46 +55,53 @@ export class TinyPromise<T> implements Thenable<T> {
     // The state of the promise can only be changed
     // from `PENDING` to `FULFILLED` or`REJECTED`.
     private state: State = State.PENDING;
-    private value: any;
-    private tasks: Task[] = [];
+    private value: T | undefined = undefined;
+    private reason: any = undefined;
+    private tasks: Task<T, any, any>[] = [];
 
-    constructor(entry: any) {
-        this.executeEntry(entry);
+    constructor(executor: Executor<T>) {
+        this.execute(executor);
     }
 
-    then(onfulfilled: any, onrejected: any): TinyPromise<any> {
-        const task: any = {
-            promise: new TinyPromise(() => {}),
+    then<TResult1 = T, TResult2 = never>(
+        onfulfilled?: FulfilledHandler<T, TResult1> | null,
+        onrejected?: RejectedHandler<TResult2> | null,
+    ): TinyPromise<TResult1 | TResult2> {
+        const task = {
+            promise: new TinyPromise<TResult1 | TResult2>(() => {}),
             onfulfilled:
                 typeof onfulfilled === 'function' ? onfulfilled : passValue,
             onrejected:
                 typeof onrejected === 'function' ? onrejected : passError,
         };
-        this.executeTask(task);
+        this.handleTask(task);
         return task.promise;
     }
 
-    catch(onrejected: any): TinyPromise<any> {
+    catch<TResult>(
+        onrejected?: RejectedHandler<TResult> | null,
+    ): TinyPromise<T | TResult> {
         return this.then(undefined, onrejected);
     }
 
-    private executeEntry(entry: any) {
+    private execute(executor: Executor<T>) {
         let called = false;
-        const handler = (fulfilled: boolean, value: any) => {
+        const resolveHandler = (value: T | Thenable<T>) => {
             if (called) {
                 return;
             }
             called = true;
-            if (fulfilled) {
-                this.resolve(value);
-            } else {
-                this.settle(State.REJECTED, value);
-            }
+            this.resolve(value);
         };
-        const resolveHandler = (value: T) => handler(true, value);
-        const rejectHandler = (reason: any) => handler(false, reason);
+        const rejectHandler = (reason?: any) => {
+            if (called) {
+                return;
+            }
+            called = true;
+            this.settle(State.REJECTED, reason);
+        };
         try {
-            entry(resolveHandler, rejectHandler);
+            executor(resolveHandler, rejectHandler);
         } catch (error) {
             rejectHandler(error);
         }
@@ -95,8 +109,9 @@ export class TinyPromise<T> implements Thenable<T> {
 
     // execute the promise resolution procedure, see:
     // https://promisesaplus.com/#the-promise-resolution-procedure
-    private resolve(x: T) {
+    private resolve(x: T | Thenable<T>) {
         let then;
+        // Try to get the `then` method of `x`.
         if ((typeof x === 'object' && x !== null) || typeof x === 'function') {
             try {
                 then = (x as any).then;
@@ -110,7 +125,7 @@ export class TinyPromise<T> implements Thenable<T> {
         }
         // If `promise` and `x` refer to the same object,
         // reject `promise` with a `TypeError' as the reason.
-        if ((x as any) === this) {
+        if ((x as Thenable<T>) === this) {
             this.settle(
                 State.REJECTED,
                 new TypeError('cannot resolve promise with itself'),
@@ -119,27 +134,31 @@ export class TinyPromise<T> implements Thenable<T> {
         }
         // If `x` is not thenable, fulfill the promise.
         if (typeof then !== 'function') {
-            this.settle(State.FULFILLED, x);
+            this.settle(State.FULFILLED, x as T);
             return;
         }
         // If `x` is a thenable, continue resolve the promise.
-        this.executeEntry(then.bind(x));
+        this.execute(then.bind(x));
     }
 
     private settle(state: State.FULFILLED, value: T): void;
     private settle(state: State.REJECTED, reason: any): void;
-    private settle(state: State.FULFILLED | State.REJECTED, value: any) {
+    private settle(state: State.FULFILLED | State.REJECTED, result: any) {
         if (this.state !== State.PENDING) {
             return;
         }
         this.state = state;
-        this.value = value;
+        if (state === State.FULFILLED) {
+            this.value = result;
+        } else {
+            this.reason = result;
+        }
         for (const task of this.tasks) {
-            this.executeTask(task);
+            this.handleTask(task);
         }
     }
 
-    private executeTask(task: Task) {
+    private handleTask(task: Task<T, any, any>) {
         if (this.state === State.PENDING) {
             this.tasks.push(task);
             return;
@@ -149,9 +168,9 @@ export class TinyPromise<T> implements Thenable<T> {
             let result;
             try {
                 if (this.state === State.FULFILLED) {
-                    result = onfulfilled(this.value);
+                    result = onfulfilled(this.value as T);
                 } else {
-                    result = onrejected(this.value);
+                    result = onrejected(this.reason);
                 }
             } catch (error) {
                 promise.settle(State.REJECTED, error);

@@ -5,7 +5,7 @@ function isNative(construct: any) {
     );
 }
 
-let callbacks: any[] = [];
+let callbacks: (() => void)[] = [];
 let pending = false;
 
 const flushCallbacks = () => {
