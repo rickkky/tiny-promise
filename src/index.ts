@@ -10,8 +10,8 @@ interface RejectedHandler<TResult> {
 
 interface Thenable<T> {
     then<TResult1 = T, TResult2 = never>(
-        onfulfilled?: FulfilledHandler<T, TResult1> | undefined | null,
-        onrejected?: RejectedHandler<TResult2> | undefined | null,
+        onfulfilled?: FulfilledHandler<T, TResult1> | null,
+        onrejected?: RejectedHandler<TResult2> | null,
     ): Thenable<TResult1 | TResult2>;
 }
 
