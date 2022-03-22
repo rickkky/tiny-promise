@@ -86,24 +86,22 @@ export class TinyPromise<T> implements Thenable<T> {
 
     private execute(executor: Executor<T>) {
         let called = false;
-        const resolveHandler = (value: T | Thenable<T>) => {
-            if (called) {
-                return;
+        const resolve = (value: T | Thenable<T>) => {
+            if (!called) {
+                called = true;
+                this.resolve(value);
             }
-            called = true;
-            this.resolve(value);
         };
-        const rejectHandler = (reason?: any) => {
-            if (called) {
-                return;
+        const reject = (reason?: any) => {
+            if (!called) {
+                called = true;
+                this.settle(State.REJECTED, reason);
             }
-            called = true;
-            this.settle(State.REJECTED, reason);
         };
         try {
-            executor(resolveHandler, rejectHandler);
+            executor(resolve, reject);
         } catch (error) {
-            rejectHandler(error);
+            reject(error);
         }
     }
 
@@ -164,7 +162,7 @@ export class TinyPromise<T> implements Thenable<T> {
             return;
         }
         const { promise, onfulfilled, onrejected } = task;
-        const executor = () => {
+        const handler = () => {
             let result;
             try {
                 if (this.state === State.FULFILLED) {
@@ -178,7 +176,7 @@ export class TinyPromise<T> implements Thenable<T> {
             }
             promise.resolve(result);
         };
-        nextTick(executor);
+        nextTick(handler);
     }
 }
 
