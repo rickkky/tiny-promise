@@ -11,6 +11,6 @@
     "bracketSameLine": false,
     "arrowParens": "always",
     "htmlWhitespaceSensitivity": "ignore",
-    "vueIndentScriptAndStyle": true,
+    "vueIndentScriptAndStyle": false,
     "endOfLine": "lf"
 }
