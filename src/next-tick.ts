@@ -1,12 +1,12 @@
-function isNative(construct: any) {
+const isNative = (construct: any) => {
     return (
         typeof construct === 'function' &&
         /\[native code\]/.test(construct.toString())
     );
-}
+};
 
-let callbacks: (() => void)[] = [];
 let pending = false;
+let callbacks: (() => void)[] = [];
 
 const flushCallbacks = () => {
     const prevCallbacks = callbacks;
@@ -18,9 +18,9 @@ const flushCallbacks = () => {
 };
 
 let asyncHandler: () => void;
+
 if (isNative(Promise)) {
     const promise = Promise.resolve();
-
     asyncHandler = () => {
         promise.then(flushCallbacks);
     };
@@ -28,7 +28,6 @@ if (isNative(Promise)) {
     const observer = new MutationObserver(flushCallbacks);
     const node = document.createTextNode('0');
     observer.observe(node, { characterData: true });
-
     asyncHandler = () => {
         node.data = `${(parseInt(node.data) + 1) % 2}`;
     };
@@ -40,11 +39,9 @@ if (isNative(Promise)) {
 
 export const nextTick = (cb: () => void, ctx = undefined) => {
     callbacks.push(cb.bind(ctx));
-
     if (pending) {
         return;
     }
-
     pending = true;
     asyncHandler();
 };
