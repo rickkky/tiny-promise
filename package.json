@@ -7,6 +7,7 @@
     ],
     "author": "rickkky <rickkky@foxmail.com>",
     "main": "src/index.ts",
+    "homepage": "https://github.com/rickkky/tiny-promise",
     "repository": {
         "type": "git",
         "url": "git+ssh://git@github.com/rickkky/tiny-promise.git"
@@ -14,7 +15,6 @@
     "bugs": {
         "url": "https://github.com/rickkky/tiny-promise/issues"
     },
-    "homepage": "https://github.com/rickkky/tiny-promise#readme",
     "scripts": {
         "build": "tsc --build",
         "test": "node test/index.js"
