@@ -1,4 +1,4 @@
-const { TinyPromise } = require('../build/index');
+const { TinyPromise } = require('../dist/index');
 
 const deferred = () => {
     let closure = undefined;
